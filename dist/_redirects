@@ -1,0 +1,8 @@
+# SPA Fallback for Netlify
+/*    /index.html   200
+
+# Ensure favicon and other static assets are served correctly
+/favicon.ico    /favicon.ico    200
+/PCard logo.png    /PCard logo.png    200
+/placeholder.png    /placeholder.png    200
+/robots.txt    /robots.txt    200
