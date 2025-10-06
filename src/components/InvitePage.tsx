@@ -62,22 +62,102 @@ export default function InvitePage() {
     setError('');
 
     try {
+      // First approach: Use our invitation validation function
+      const { data: validationResult, error: validationError } = await supabase
+        .rpc('create_invited_user', {
+          invitation_token: invitation.token,
+          user_password: invitation.password
+        });
+
+      if (validationError) {
+        console.log('Validation function failed:', validationError);
+        setError('Database error: ' + validationError.message);
+        return;
+      }
+
+      if (validationResult?.error) {
+        setError(validationResult.error);
+        return;
+      }
+
+      if (validationResult?.success) {
+        console.log('Invitation validated:', validationResult);
+        
+        // Now proceed with Supabase auth signup using the validated email
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: validationResult.email,
+          password: invitation.password,
+          options: {
+            data: {
+              username: validationResult.username,
+              invited: true
+            },
+            emailRedirectTo: undefined // Disable email redirect
+          }
+        });
+
+        if (authError) {
+          // Handle specific error cases
+          if (authError.message.includes('rate limit')) {
+            setError('Too many signup attempts. Please wait a few minutes and try again.');
+          } else if (authError.message.includes('User already registered')) {
+            setError('This invitation has already been used or the user already exists. Please try logging in instead.');
+          } else {
+            setError('Failed to create account: ' + authError.message);
+          }
+          return;
+        }
+
+        console.log('Account created successfully:', authData);
+        setSuccess('Account created successfully! You can now login with your credentials.');
+        
+        // Redirect to main page after a delay
+        setTimeout(() => {
+          navigate('/');
+        }, 3000);
+        return;
+      }
+
+      // Fallback approach if function doesn't return expected result
+      let emailToUse = invitation.username;
+      
+      // If username is not an email, create a dummy email
+      if (!emailToUse.includes('@')) {
+        emailToUse = `${invitation.username}@pcard-user.local`;
+      }
+
+      console.log('Attempting fallback signup with email:', emailToUse);
+
       // Create the user account with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: invitation.username, // Using username as email for simplicity
+        email: emailToUse,
         password: invitation.password,
         options: {
           data: {
-            username: invitation.username
-          }
+            username: invitation.username,
+            invited: true
+          },
+          emailRedirectTo: undefined // Disable email confirmation for invited users
         }
       });
 
+      console.log('Fallback signup result:', { authData, authError });
+
       if (authError) {
-        throw authError;
+        // Handle specific error cases
+        if (authError.message.includes('rate limit')) {
+          setError('Too many signup attempts. Please wait a few minutes and try again.');
+        } else if (authError.message.includes('User already registered')) {
+          setError('This invitation has already been used or the user already exists. Please try logging in instead.');
+        } else if (authError.message.includes('email')) {
+          setError('There was an issue with the email format. Please contact your administrator.');
+        } else {
+          setError('Failed to create account: ' + authError.message);
+        }
+        return;
       }
 
-      // Mark the invitation as used
+      // Mark the invitation as used (fallback method)
       const { error: updateError } = await supabase
         .from('user_invitations')
         .update({ used: true, used_at: new Date().toISOString() })
@@ -95,7 +175,12 @@ export default function InvitePage() {
       }, 3000);
 
     } catch (error: any) {
-      setError('Failed to create account: ' + error.message);
+      console.error('Account creation error:', error);
+      if (error.message.includes('rate limit')) {
+        setError('Too many attempts. Please wait a few minutes before trying again.');
+      } else {
+        setError('Failed to create account: ' + error.message);
+      }
     } finally {
       setCreating(false);
     }

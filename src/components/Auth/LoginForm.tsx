@@ -17,13 +17,48 @@ export default function LoginForm({ onSuccess, onForgotPassword }: LoginFormProp
     setLoading(true);
     setError('');
 
-    const { error } = await supabase.auth.signInWithPassword({ email: username, password });
-    
-    if (error) {
-      setError(error.message);
+    try {
+      // Handle both username and email format login
+      let emailToUse = username;
+      
+      // If username doesn't contain @, convert it to the email format we use for invited users
+      if (!username.includes('@')) {
+        emailToUse = `${username}@pcard-user.local`;
+      }
+
+      console.log('Attempting login with email:', emailToUse);
+
+      const { error } = await supabase.auth.signInWithPassword({ 
+        email: emailToUse, 
+        password 
+      });
+      
+      if (error) {
+        // Try with original username if the converted email fails
+        if (!username.includes('@')) {
+          console.log('Retrying with original username as email...');
+          const { error: retryError } = await supabase.auth.signInWithPassword({ 
+            email: username, 
+            password 
+          });
+          
+          if (retryError) {
+            throw retryError;
+          } else {
+            onSuccess();
+            return;
+          }
+        } else {
+          throw error;
+        }
+      } else {
+        onSuccess();
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setError(error.message || 'Login failed');
+    } finally {
       setLoading(false);
-    } else {
-      onSuccess();
     }
   };
 

@@ -30,27 +30,38 @@ export default function Dashboard() {
     if (user) {
       console.log('Current user:', user.email, 'User ID:', user.id);
       
-      // Check if user is admin using the new admin_users table
-      const { data: adminData, error: adminError } = await supabase
-        .from('admin_users')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-      
-      console.log('Admin check result:', adminData, 'Error:', adminError);
-      
-      if (adminData) {
-        setIsAdmin(true);
-        console.log('User is admin with role:', adminData.role);
-      } else {
-        // Fallback: Check by email pattern (temporary until database is fixed)
+      // Primary check: Database admin_users table
+      try {
+        const { data: adminData, error: adminError } = await supabase
+          .from('admin_users')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        
+        console.log('Admin check result:', adminData, 'Error:', adminError);
+        
+        if (adminData) {
+          setIsAdmin(true);
+          console.log('User is admin with role:', adminData.role);
+        } else {
+          // Fallback: Check by email pattern
+          if (user.email === 'pmreyes16@gmail.com' || 
+              user.email === 'admin@pcard.com' || 
+              user.email?.includes('admin')) {
+            setIsAdmin(true);
+            console.log('User is admin by email pattern (fallback)');
+          } else {
+            console.log('User is not admin');
+          }
+        }
+      } catch (error) {
+        console.error('Database admin check failed, using email fallback:', error);
+        // If database check fails completely, use email fallback
         if (user.email === 'pmreyes16@gmail.com' || 
             user.email === 'admin@pcard.com' || 
             user.email?.includes('admin')) {
           setIsAdmin(true);
-          console.log('User is admin by email pattern (fallback)');
-        } else {
-          console.log('User is not admin');
+          console.log('User is admin by email pattern (database error fallback)');
         }
       }
     }
