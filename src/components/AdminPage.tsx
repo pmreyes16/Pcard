@@ -130,7 +130,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <img src="/PCard logo.png" alt="PCard Logo" className="h-16 w-16 mx-auto mb-4" />
+          <img src="/PCard logo.png" alt="PCard Logo" className="h-32 w-32 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-blue-900 mb-2">Admin Dashboard</h1>
           <p className="text-gray-600">Generate user invitations with predefined credentials</p>
         </div>
