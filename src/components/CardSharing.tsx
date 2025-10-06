@@ -96,7 +96,7 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
     
     switch (platform) {
       case 'twitter':
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(publicUrl)}`;
+        shareUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(publicUrl)}`;
         break;
       case 'facebook':
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicUrl)}`;
@@ -293,13 +293,13 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
             <span className="text-sm font-medium text-gray-700">WhatsApp</span>
           </button>
 
-          {/* Twitter */}
+          {/* X (formerly Twitter) */}
           <button
             onClick={() => shareOnSocial('twitter')}
             className="flex flex-col items-center space-y-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <span className="text-2xl">🐦</span>
-            <span className="text-sm font-medium text-gray-700">Twitter</span>
+            <span className="text-2xl">𝕏</span>
+            <span className="text-sm font-medium text-gray-700">X</span>
           </button>
 
           {/* LinkedIn */}

@@ -344,13 +344,13 @@ export default function CardEditor({ userId }: CardEditorProps) {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Twitter</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">X (formerly Twitter)</label>
                 <input
                   type="url"
                   value={card.twitter_url || ''}
                   onChange={(e) => setCard({ ...card, twitter_url: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="https://twitter.com/username"
+                  placeholder="https://x.com/username"
                 />
               </div>
               
