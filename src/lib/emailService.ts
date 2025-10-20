@@ -80,11 +80,13 @@ export class EmailService {
           // Try to get error details from the response
           try {
             const errorData = await response.json();
-            console.error('Serverless function error details:', errorData);
+            console.error('❌ SERVERLESS FUNCTION ERROR:', errorData);
+            alert(`Email service error: ${errorData.error}\nDetails: ${errorData.details || 'No details available'}`);
             return false;
           } catch (jsonError) {
             const errorText = await response.text();
-            console.error('Serverless function error (text):', errorText);
+            console.error('❌ SERVERLESS FUNCTION ERROR (text):', errorText);
+            alert(`Email service error: ${response.status} - ${errorText}`);
             return false;
           }
         }
