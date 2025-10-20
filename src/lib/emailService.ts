@@ -52,6 +52,13 @@ export class EmailService {
     if (isProduction) {
       // Production: Use Vercel serverless function
       try {
+        console.log('Calling serverless function with data:', {
+          recipientEmail: data.recipientEmail,
+          hasUsername: !!data.username,
+          hasInviteUrl: !!data.inviteUrl,
+          hasPassword: !!data.password
+        });
+
         const response = await fetch('/api/send-invite', {
           method: 'POST',
           headers: {
@@ -67,9 +74,27 @@ export class EmailService {
           }),
         });
 
-        return response.ok;
+        console.log('Serverless function response status:', response.status);
+
+        if (!response.ok) {
+          // Try to get error details from the response
+          try {
+            const errorData = await response.json();
+            console.error('Serverless function error details:', errorData);
+            return false;
+          } catch (jsonError) {
+            const errorText = await response.text();
+            console.error('Serverless function error (text):', errorText);
+            return false;
+          }
+        }
+
+        const result = await response.json();
+        console.log('Email sent successfully:', result);
+        return true;
+
       } catch (error) {
-        console.error('Serverless function error:', error);
+        console.error('Serverless function call failed:', error);
         return false;
       }
     } else {
@@ -215,3 +240,50 @@ const emailConfig: EmailConfig = {
 };
 
 export const emailService = new EmailService(emailConfig);
+
+// Debug function - you can call this from browser console: emailService.testServerlessFunction()
+(emailService as any).testServerlessFunction = async () => {
+  try {
+    console.log('Testing serverless function...');
+    
+    // Test the basic test endpoint first
+    const testResponse = await fetch('/api/test');
+    console.log('Test endpoint status:', testResponse.status);
+    
+    if (testResponse.ok) {
+      const testData = await testResponse.json();
+      console.log('Test endpoint response:', testData);
+    } else {
+      const testError = await testResponse.text();
+      console.error('Test endpoint error:', testError);
+    }
+
+    // Test the email endpoint with minimal data
+    const emailResponse = await fetch('/api/send-invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipientEmail: 'test@example.com',
+        recipientName: 'Test User',
+        inviteUrl: 'https://test.com/invite/123',
+        username: 'testuser',
+        password: 'testpass123'
+      }),
+    });
+
+    console.log('Email endpoint status:', emailResponse.status);
+    
+    if (emailResponse.ok) {
+      const emailData = await emailResponse.json();
+      console.log('Email endpoint response:', emailData);
+    } else {
+      const emailError = await emailResponse.text();
+      console.error('Email endpoint error:', emailError);
+    }
+
+  } catch (error) {
+    console.error('Test function error:', error);
+  }
+};
