@@ -161,9 +161,9 @@ export class EmailService {
 
 // Email configuration - modify these values as needed
 const emailConfig: EmailConfig = {
-  provider: 'disabled', // Change to 'resend' or 'sendgrid' when you set up email service
-  apiKey: '', // Add your API key here when ready
-  fromEmail: 'noreply@yourdomain.com', // Change to your domain
+  provider: 'resend', // Changed from 'disabled' to 'resend'
+  apiKey: 'YOUR_RESEND_API_KEY_HERE', // Add your actual API key here
+  fromEmail: 'noreply@pcard-lemon.vercel.app', // Update to your domain
   fromName: 'PCard Team'
 };
 

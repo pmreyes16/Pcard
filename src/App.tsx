@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import PublicCardViewer from "./components/PublicCardViewer";
 import AdminPage from "./components/AdminPage";
 import InvitePage from "./components/InvitePage";
+import AuthCallback from "./components/AuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/invite/:token" element={<InvitePage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/card/:slug" element={<PublicCardViewer />} />
             <Route path="/:slug" element={<PublicCardViewer />} />
             <Route path="*" element={<NotFound />} />

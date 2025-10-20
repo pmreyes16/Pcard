@@ -121,9 +121,16 @@ export default function PublicCardViewer() {
   const downloadVCard = () => {
     if (!card) return;
 
+    // Split the full name into parts for proper vCard formatting
+    const nameParts = card.full_name.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    const middleNames = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
+
     const vcard = `BEGIN:VCARD
 VERSION:3.0
 FN:${card.full_name}
+N:${lastName};${firstName};${middleNames};;
 ${card.job_title ? `TITLE:${card.job_title}` : ''}
 ${card.company ? `ORG:${card.company}` : ''}
 EMAIL:${card.email}

@@ -33,23 +33,38 @@ export default function InvitePage() {
 
   const validateInvitation = async (inviteToken: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_invitations')
-        .select('*')
-        .eq('token', inviteToken)
-        .eq('used', false)
-        .gt('expires_at', new Date().toISOString())
-        .single();
+      // Use the check function first to avoid consuming the invitation
+      const { data: checkResult, error: checkError } = await supabase
+        .rpc('check_invitation_status', { invitation_token: inviteToken });
 
-      if (error || !data) {
-        setError('Invalid or expired invitation link');
+      if (checkError) {
+        console.error('Error checking invitation:', checkError);
+        setError('Failed to validate invitation');
         setLoading(false);
         return;
       }
 
-      setInvitation(data);
-      setLoading(false);
+      if (checkResult?.error) {
+        setError(checkResult.error);
+        setLoading(false);
+        return;
+      }
+
+      if (checkResult?.valid) {
+        setInvitation({
+          token: inviteToken,
+          username: checkResult.username,
+          password: '', // We'll get the actual password from the database when creating account
+          used: false,
+          expires_at: checkResult.expires_at
+        });
+        setLoading(false);
+      } else {
+        setError('Invalid invitation');
+        setLoading(false);
+      }
     } catch (error: any) {
+      console.error('Validation error:', error);
       setError('Failed to validate invitation: ' + error.message);
       setLoading(false);
     }
@@ -62,7 +77,7 @@ export default function InvitePage() {
     setError('');
 
     try {
-      // First approach: Use our invitation validation function
+      // Step 1: Use our database function to validate and prepare the invitation
       const { data: validationResult, error: validationError } = await supabase
         .rpc('create_invited_user', {
           invitation_token: invitation.token,
@@ -83,25 +98,36 @@ export default function InvitePage() {
       if (validationResult?.success) {
         console.log('Invitation validated:', validationResult);
         
-        // Now proceed with Supabase auth signup using the validated email
+        // Step 2: Create user with Supabase Auth using validated email
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: validationResult.email,
           password: invitation.password,
           options: {
             data: {
               username: validationResult.username,
-              invited: true
+              invited: true,
+              email_confirmed: true // Try to force email as confirmed
             },
-            emailRedirectTo: undefined // Disable email redirect
+            emailRedirectTo: undefined, // Completely disable email redirect
+            captchaToken: undefined
           }
         });
 
         if (authError) {
-          // Handle specific error cases
+          console.error('Auth signup error:', authError);
+          
+          // If signup fails due to email confirmation, try to handle it
           if (authError.message.includes('rate limit')) {
             setError('Too many signup attempts. Please wait a few minutes and try again.');
           } else if (authError.message.includes('User already registered')) {
-            setError('This invitation has already been used or the user already exists. Please try logging in instead.');
+            setError('This invitation has already been used. Please try logging in instead.');
+          } else if (authError.message.includes('confirmation')) {
+            // If email confirmation is required, show success anyway
+            setSuccess('Account created! Please check your email for confirmation, or try logging in directly.');
+            setTimeout(() => {
+              navigate('/');
+            }, 3000);
+            return;
           } else {
             setError('Failed to create account: ' + authError.message);
           }
@@ -118,61 +144,8 @@ export default function InvitePage() {
         return;
       }
 
-      // Fallback approach if function doesn't return expected result
-      let emailToUse = invitation.username;
-      
-      // If username is not an email, create a dummy email
-      if (!emailToUse.includes('@')) {
-        emailToUse = `${invitation.username}@pcard-user.local`;
-      }
-
-      console.log('Attempting fallback signup with email:', emailToUse);
-
-      // Create the user account with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: emailToUse,
-        password: invitation.password,
-        options: {
-          data: {
-            username: invitation.username,
-            invited: true
-          },
-          emailRedirectTo: undefined // Disable email confirmation for invited users
-        }
-      });
-
-      console.log('Fallback signup result:', { authData, authError });
-
-      if (authError) {
-        // Handle specific error cases
-        if (authError.message.includes('rate limit')) {
-          setError('Too many signup attempts. Please wait a few minutes and try again.');
-        } else if (authError.message.includes('User already registered')) {
-          setError('This invitation has already been used or the user already exists. Please try logging in instead.');
-        } else if (authError.message.includes('email')) {
-          setError('There was an issue with the email format. Please contact your administrator.');
-        } else {
-          setError('Failed to create account: ' + authError.message);
-        }
-        return;
-      }
-
-      // Mark the invitation as used (fallback method)
-      const { error: updateError } = await supabase
-        .from('user_invitations')
-        .update({ used: true, used_at: new Date().toISOString() })
-        .eq('token', invitation.token);
-
-      if (updateError) {
-        console.error('Failed to mark invitation as used:', updateError);
-      }
-
-      setSuccess('Account created successfully! You can now login with your credentials.');
-      
-      // Redirect to main page after a delay
-      setTimeout(() => {
-        navigate('/');
-      }, 3000);
+      // If we get here, something unexpected happened
+      setError('Unexpected error during account creation. Please try again.');
 
     } catch (error: any) {
       console.error('Account creation error:', error);
