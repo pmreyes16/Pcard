@@ -159,11 +159,12 @@ export class EmailService {
   }
 }
 
-// Email configuration - modify these values as needed
+// Email configuration - disabled due to CORS restrictions
+// Email services need to be called from backend, not frontend
 const emailConfig: EmailConfig = {
-  provider: 'resend', // Changed from 'disabled' to 'resend'
-  apiKey: 'YOUR_RESEND_API_KEY_HERE', // Add your actual API key here
-  fromEmail: 'noreply@pcard-lemon.vercel.app', // Update to your domain
+  provider: 'disabled', // Disabled to prevent CORS errors
+  apiKey: '', // Email APIs must be called from backend
+  fromEmail: 'noreply@pcard-lemon.vercel.app',
   fromName: 'PCard Team'
 };
 
