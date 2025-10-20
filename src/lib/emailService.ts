@@ -47,21 +47,61 @@ export class EmailService {
   }
 
   private async sendWithResend(data: InvitationEmailData): Promise<boolean> {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${this.config.fromName} <${this.config.fromEmail}>`,
-        to: [data.recipientEmail],
-        subject: 'Welcome to PCard - Your Account is Ready!',
-        html: this.generateInvitationHTML(data),
-      }),
-    });
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    
+    if (isProduction) {
+      // Production: Use Vercel serverless function
+      try {
+        const response = await fetch('/api/send-invite', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recipientEmail: data.recipientEmail,
+            recipientName: data.recipientName,
+            inviteUrl: data.inviteUrl,
+            username: data.username,
+            password: data.password,
+            senderName: data.senderName
+          }),
+        });
 
-    return response.ok;
+        return response.ok;
+      } catch (error) {
+        console.error('Serverless function error:', error);
+        return false;
+      }
+    } else {
+      // Local development: Direct API call (if API key is available)
+      if (!this.config.apiKey) {
+        console.warn('No API key available for local development');
+        return false;
+      }
+
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: `${this.config.fromName} <${this.config.fromEmail}>`,
+            to: [data.recipientEmail],
+            subject: 'Welcome to PCard',
+            html: this.generateInvitationHTML(data),
+            reply_to: this.config.fromEmail,
+          }),
+        });
+
+        return response.ok;
+      } catch (error) {
+        console.error('Direct Resend API call failed (CORS expected in browser):', error);
+        console.log('This is normal in browser environments. Use production deployment for emails.');
+        return false;
+      }
+    }
   }
 
   private async sendWithSendGrid(data: InvitationEmailData): Promise<boolean> {
@@ -159,12 +199,18 @@ export class EmailService {
   }
 }
 
-// Email configuration - disabled due to CORS restrictions
-// Email services need to be called from backend, not frontend
+// Email configuration - environment aware
+// Check if we're in production OR if RESEND_API_KEY is available locally
+const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+// Get Vite environment variable (accessible in frontend during development)
+const viteApiKey = (import.meta as any).env?.VITE_RESEND_API_KEY;
+const hasResendKey = viteApiKey && viteApiKey.length > 0;
+
 const emailConfig: EmailConfig = {
-  provider: 'disabled', // Disabled to prevent CORS errors
-  apiKey: '', // Email APIs must be called from backend
-  fromEmail: 'noreply@pcard-lemon.vercel.app',
+  provider: (isProduction || hasResendKey) ? 'resend' : 'disabled', // Enable if production or API key available
+  apiKey: viteApiKey || '', // For local development with direct API calls
+  fromEmail: 'onboarding@pcard-lemon.vercel.app',
   fromName: 'PCard Team'
 };
 
