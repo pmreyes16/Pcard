@@ -22,23 +22,29 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    console.log('=== EMAIL SERVICE DEBUG ===');
+    console.log('=== EMAIL SERVICE HANDLER START ===');
+    console.log('Request method:', req.method);
     console.log('Environment check:', {
       hasResendKey: !!process.env.RESEND_API_KEY,
       keyLength: process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.length : 0,
-      nodeEnv: process.env.NODE_ENV
+      keyPrefix: process.env.RESEND_API_KEY ? process.env.RESEND_API_KEY.substring(0, 10) + '...' : 'NOT_SET',
+      nodeEnv: process.env.NODE_ENV,
+      allEnvKeys: Object.keys(process.env).filter(key => key.includes('RESEND'))
     });
 
     // Check if Resend API key is available
     if (!process.env.RESEND_API_KEY) {
-      console.error('RESEND_API_KEY environment variable not set');
+      console.error('❌ RESEND_API_KEY environment variable not set');
       return res.status(500).json({ 
         error: 'Email service not configured', 
-        details: 'RESEND_API_KEY environment variable missing' 
+        details: 'RESEND_API_KEY environment variable missing',
+        availableEnvKeys: Object.keys(process.env).filter(key => key.includes('RESEND'))
       });
     }
 
+    console.log('✅ API key found, initializing Resend...');
     const resend = new Resend(process.env.RESEND_API_KEY);
+    console.log('✅ Resend instance created successfully');
 
     const { recipientEmail, recipientName, inviteUrl, username, password } = req.body;
 
@@ -65,59 +71,69 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    console.log('Attempting to send email to:', recipientEmail);
+    console.log('✅ Attempting to send email to:', recipientEmail);
+
+    // Generate HTML content
+    console.log('🔄 Generating email HTML...');
+    const htmlContent = generateInvitationHTML({
+      recipientEmail,
+      recipientName,
+      inviteUrl,
+      username,
+      password
+    });
+    console.log('✅ Email HTML generated, length:', htmlContent.length);
 
     // Send email using Resend
     const emailData = {
       from: 'PCard Team <onboarding@pcard-lemon.vercel.app>',
       to: [recipientEmail],
       subject: 'Welcome to PCard',
-      html: generateInvitationHTML({
-        recipientEmail,
-        recipientName,
-        inviteUrl,
-        username,
-        password
-      }),
+      html: htmlContent,
       replyTo: 'onboarding@pcard-lemon.vercel.app',
     };
 
-    console.log('Email data prepared:', {
+    console.log('📧 Email data prepared:', {
       from: emailData.from,
       to: emailData.to,
       subject: emailData.subject,
-      hasHtml: !!emailData.html
+      hasHtml: !!emailData.html,
+      htmlLength: emailData.html.length
     });
 
+    console.log('🚀 Calling Resend API...');
     const { data, error } = await resend.emails.send(emailData);
+    console.log('📬 Resend API call completed');
 
     if (error) {
-      console.error('Resend API error:', error);
+      console.error('❌ Resend API error:', error);
       return res.status(500).json({ 
-        error: 'Failed to send email', 
-        details: error.message || error 
+        error: 'Failed to send email via Resend', 
+        details: error.message || JSON.stringify(error),
+        errorType: 'RESEND_API_ERROR'
       });
     }
 
-    console.log('Email sent successfully:', data?.id);
+    console.log('✅ Email sent successfully! Message ID:', data?.id);
     return res.status(200).json({ 
       success: true, 
       messageId: data?.id,
-      recipient: recipientEmail 
+      recipient: recipientEmail,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('=== EMAIL SERVICE ERROR ===');
-    console.error('Error details:', {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
-    });
+    console.error('=== 💥 CRITICAL ERROR IN EMAIL SERVICE ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', error);
     
     return res.status(500).json({ 
       error: 'Internal server error',
-      details: error.message,
-      type: error.name
+      details: error.message || 'Unknown error occurred',
+      errorType: error.name || 'UNKNOWN_ERROR',
+      timestamp: new Date().toISOString()
     });
   }
 };
