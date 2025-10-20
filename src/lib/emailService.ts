@@ -77,18 +77,31 @@ export class EmailService {
         console.log('Serverless function response status:', response.status);
 
         if (!response.ok) {
-          // Try to get error details from the response
+          // Read response body once and handle accordingly
+          let errorMessage = `HTTP ${response.status}`;
+          let errorDetails = 'No details available';
+          
           try {
-            const errorData = await response.json();
-            console.error('❌ SERVERLESS FUNCTION ERROR:', errorData);
-            alert(`Email service error: ${errorData.error}\nDetails: ${errorData.details || 'No details available'}`);
-            return false;
-          } catch (jsonError) {
-            const errorText = await response.text();
-            console.error('❌ SERVERLESS FUNCTION ERROR (text):', errorText);
-            alert(`Email service error: ${response.status} - ${errorText}`);
-            return false;
+            const responseText = await response.text();
+            console.error('❌ SERVERLESS FUNCTION ERROR (raw):', responseText);
+            
+            // Try to parse as JSON
+            try {
+              const errorData = JSON.parse(responseText);
+              errorMessage = errorData.error || errorMessage;
+              errorDetails = errorData.details || responseText;
+            } catch {
+              // Not JSON, use as plain text
+              errorDetails = responseText;
+            }
+          } catch (readError) {
+            console.error('❌ Failed to read response body:', readError);
+            errorDetails = 'Failed to read error details';
           }
+          
+          console.error('❌ PROCESSED ERROR:', { errorMessage, errorDetails });
+          alert(`Email service error: ${errorMessage}\nDetails: ${errorDetails}`);
+          return false;
         }
 
         const result = await response.json();
