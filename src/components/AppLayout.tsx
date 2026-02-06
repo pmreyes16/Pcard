@@ -13,6 +13,8 @@ const AppLayout: React.FC = () => {
     checkUser();
     
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, session?.user?.email || 'no user');
+      
       setUser(session?.user || null);
       if (session?.user) {
         setView('dashboard');
@@ -27,15 +29,34 @@ const AppLayout: React.FC = () => {
   }, []);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    
-    const path = window.location.pathname;
-    if (path.startsWith('/card/')) {
-      setView('public');
-    } else if (user) {
-      setView('dashboard');
-    } else {
+    try {
+      console.log('Checking current user...');
+      
+      // First check if we have a session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        setUser(null);
+      } else if (session?.user) {
+        console.log('Found active session for:', session.user.email);
+        setUser(session.user);
+      } else {
+        console.log('No active session found');
+        setUser(null);
+      }
+      
+      const path = window.location.pathname;
+      if (path.startsWith('/card/')) {
+        setView('public');
+      } else if (session?.user) {
+        setView('dashboard');
+      } else {
+        setView('auth');
+      }
+    } catch (error) {
+      console.error('Unexpected error checking user:', error);
+      setUser(null);
       setView('auth');
     }
     

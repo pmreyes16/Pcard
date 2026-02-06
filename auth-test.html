@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Authentication Test</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Authentication Test</h1>
+    
+    <div id="status">Testing connection...</div>
+    
+    <div style="margin: 20px 0;">
+        <h3>Test Login</h3>
+        <input type="email" id="email" placeholder="Email" value="test@example.com">
+        <input type="password" id="password" placeholder="Password" value="testpassword123">
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+    
+    <div style="margin: 20px 0;">
+        <h3>Test Signup</h3>
+        <input type="email" id="signupEmail" placeholder="Email" value="new@example.com">
+        <input type="password" id="signupPassword" placeholder="Password" value="password123">
+        <button onclick="testSignup()">Test Signup</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        const supabaseUrl = 'https://cuspqjialyzpxgegjsgy.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1c3BxamlhbHl6cHhnZWdqc2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MDEzNDAsImV4cCI6MjA3NTA3NzM0MH0.ywITnSRgbMxCBlDhQSzEj5TmM_cbeLTKExO3KtAdmD8';
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+        
+        function log(message) {
+            const results = document.getElementById('results');
+            results.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+        }
+        
+        async function testConnection() {
+            try {
+                log('Testing Supabase connection...');
+                
+                const { data, error } = await supabaseClient.auth.getSession();
+                
+                if (error) {
+                    log('❌ Connection error: ' + error.message);
+                } else {
+                    log('✅ Connection successful');
+                    log('Session: ' + (data.session ? 'Active' : 'None'));
+                }
+                
+                document.getElementById('status').textContent = 'Connection test complete';
+            } catch (err) {
+                log('❌ Unexpected error: ' + err.message);
+                document.getElementById('status').textContent = 'Connection failed';
+            }
+        }
+        
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                log('Testing login with: ' + email);
+                
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) {
+                    log('❌ Login error: ' + error.message);
+                } else {
+                    log('✅ Login successful: ' + data.user.email);
+                }
+            } catch (err) {
+                log('❌ Login unexpected error: ' + err.message);
+            }
+        }
+        
+        async function testSignup() {
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            
+            try {
+                log('Testing signup with: ' + email);
+                
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email,
+                    password
+                });
+                
+                if (error) {
+                    log('❌ Signup error: ' + error.message);
+                } else {
+                    log('✅ Signup successful: ' + data.user.email);
+                    if (!data.user.email_confirmed_at) {
+                        log('📧 Email confirmation required');
+                    }
+                }
+            } catch (err) {
+                log('❌ Signup unexpected error: ' + err.message);
+            }
+        }
+        
+        // Test connection on load
+        testConnection();
+    </script>
+</body>
+</html>

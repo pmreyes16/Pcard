@@ -33,7 +33,7 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const generateQRCode = (slug: string) => {
-    const publicUrl = `${window.location.origin}/card/${slug}`;
+    const publicUrl = `${window.location.origin}/card/${card?.full_name?.toLowerCase().replace(/\s+/g, '-')}`;
     // Using QR Server API for QR code generation
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicUrl)}`;
     setQrCodeUrl(qrUrl);
@@ -62,9 +62,9 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const shareViaEmail = () => {
-    if (!card?.slug) return;
+    if (!card?.full_name) return;
     
-    const publicUrl = `${window.location.origin}/card/${card.slug}`;
+    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
     const subject = `Check out ${card.full_name}'s Business Card`;
     const body = `Hi there!\n\nI'd like to share my digital business card with you: ${publicUrl}\n\nBest regards,\n${card.full_name}`;
     
@@ -75,9 +75,9 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const shareViaSMS = () => {
-    if (!card?.slug) return;
+    if (!card?.full_name) return;
     
-    const publicUrl = `${window.location.origin}/card/${card.slug}`;
+    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
     const message = `Check out my digital business card: ${publicUrl} - ${card.full_name}`;
     
     const smsUrl = `sms:?body=${encodeURIComponent(message)}`;
@@ -87,9 +87,9 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const shareOnSocial = (platform: string) => {
-    if (!card?.slug) return;
+    if (!card?.full_name) return;
     
-    const publicUrl = `${window.location.origin}/card/${card.slug}`;
+    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
     const text = `Check out ${card.full_name}'s digital business card`;
     
     let shareUrl = '';
@@ -127,9 +127,9 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const webShare = async () => {
-    if (!card?.slug) return;
+    if (!card?.full_name) return;
     
-    const publicUrl = `${window.location.origin}/card/${card.slug}`;
+    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
     
     if (navigator.share) {
       try {
@@ -165,7 +165,7 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
     );
   }
 
-  const publicUrl = `${window.location.origin}/card/${card.slug}`;
+  const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
 
   return (
     <div className="space-y-6">

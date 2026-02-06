@@ -3,14 +3,29 @@ import { supabase } from '../lib/supabase';
 import CardEditor from './Card/CardEditor';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CardSharing from './CardSharing';
+<<<<<<< HEAD
 import AdminPage from './AdminPage';
+=======
+import UserManagement from './Auth/UserManagement';
+>>>>>>> 63ac77d (urlslug)
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('editor');
   const [refreshSharing, setRefreshSharing] = useState(0);
+<<<<<<< HEAD
   const [isAdmin, setIsAdmin] = useState(false);
+=======
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  // Define superadmin emails (you can modify this list)
+  const superAdminEmails = [
+    'pmreyes16@yahoo.com',
+    'admin@pcard.com',
+    'superadmin@pcard.com'
+  ];
+>>>>>>> 63ac77d (urlslug)
 
   useEffect(() => {
     checkUser();
@@ -27,6 +42,7 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
     
+<<<<<<< HEAD
     if (user) {
       console.log('Current user:', user.email, 'User ID:', user.id);
       
@@ -64,6 +80,12 @@ export default function Dashboard() {
           console.log('User is admin by email pattern (database error fallback)');
         }
       }
+=======
+    // Check if user is superadmin
+    if (user && user.email) {
+      const isAdmin = superAdminEmails.includes(user.email.toLowerCase());
+      setIsSuperAdmin(isAdmin);
+>>>>>>> 63ac77d (urlslug)
     }
     
     setLoading(false);
@@ -86,12 +108,17 @@ export default function Dashboard() {
     return null;
   }
 
-  const tabs = [
+  const baseTabs = [
     { id: 'editor', name: 'Edit Card', icon: '✏️' },
     { id: 'analytics', name: 'Analytics', icon: '📊' },
     { id: 'sharing', name: 'Share', icon: '🔗' },
     ...(isAdmin ? [{ id: 'admin', name: 'Admin', icon: '⚙️' }] : [])
   ];
+
+  // Add user management tab for superadmins
+  const tabs = isSuperAdmin 
+    ? [...baseTabs, { id: 'users', name: 'Add Contacts', icon: '👥' }]
+    : baseTabs;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,7 +130,14 @@ export default function Dashboard() {
             <h1 className="text-lg font-bold text-blue-600 sm:hidden">Pcard</h1>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <span className="text-gray-600 text-sm sm:text-base hidden md:block">Welcome, {user.email}</span>
+            <div className="hidden md:block">
+              <span className="text-gray-600 text-sm sm:text-base">Welcome, {user.email}</span>
+              {isSuperAdmin && (
+                <span className="ml-2 bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-1 rounded-full">
+                  👑 SuperAdmin
+                </span>
+              )}
+            </div>
             <button
               onClick={handleLogout}
               className="px-2 py-1 sm:px-4 sm:py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
@@ -148,7 +182,11 @@ export default function Dashboard() {
           {activeTab === 'editor' && <CardEditor userId={user.id} />}
           {activeTab === 'analytics' && <AnalyticsDashboard userId={user.id} />}
           {activeTab === 'sharing' && <CardSharing userId={user.id} refreshKey={refreshSharing} />}
+<<<<<<< HEAD
           {activeTab === 'admin' && isAdmin && <AdminPage />}
+=======
+          {activeTab === 'users' && isSuperAdmin && <UserManagement />}
+>>>>>>> 63ac77d (urlslug)
         </div>
       </div>
     </div>
