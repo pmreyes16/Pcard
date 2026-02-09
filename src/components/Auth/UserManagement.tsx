@@ -23,32 +23,97 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      // For now, we'll just show user profiles since we can't directly query auth.users
-      const { data, error } = await supabase
+      console.log('Fetching users from business_cards table...');
+      
+      // Primary source: Get users from business_cards table (active users with cards)
+      const { data: cardUsers, error: cardError } = await supabase
+        .from('business_cards')
+        .select('user_id, email, full_name, created_at, updated_at')
+        .order('created_at', { ascending: false });
+
+      console.log('Business cards query result:', { cardUsers, cardError });
+
+      // Secondary source: Get additional users from user_profiles
+      const { data: profiles, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching users:', error);
+      console.log('Profile query result:', { profiles, profileError });
+
+      let allUsers: User[] = [];
+
+      // Process business_cards data first (priority source)
+      if (cardUsers && !cardError) {
+        const cardUserProfiles = cardUsers
+          .filter(card => card.email) // Only include cards with email
+          .map(card => ({
+            id: card.user_id,
+            email: card.email,
+            created_at: card.created_at,
+            email_confirmed_at: card.created_at, // Assume confirmed since they created a card
+            last_sign_in_at: card.updated_at || card.created_at
+          }));
+        
+        allUsers = [...cardUserProfiles];
+        console.log('Users from business_cards:', cardUserProfiles);
+      }
+
+      // Add users from user_profiles who don't already exist
+      if (profiles && !profileError) {
+        const additionalProfiles = profiles
+          .filter(profile => !allUsers.some(existing => existing.id === profile.id))
+          .map(profile => ({
+            id: profile.id,
+            email: profile.email || profile.username || 'No email',
+            created_at: profile.created_at,
+            email_confirmed_at: profile.created_at,
+            last_sign_in_at: profile.updated_at || profile.created_at
+          }));
+        
+        allUsers = [...allUsers, ...additionalProfiles];
+        console.log('Additional users from user_profiles:', additionalProfiles);
+      }
+
+      // Remove duplicates based on email
+      const uniqueUsers = allUsers.filter((user, index, self) => 
+        index === self.findIndex(u => u.email === user.email)
+      );
+
+      console.log('Final users list:', uniqueUsers);
+      setUsers(uniqueUsers);
+
+      if (uniqueUsers.length === 0) {
+        console.warn('No users found. Check that business_cards table has data or users have been created.');
+        if (cardError) {
+          console.error('Business cards query failed:', cardError);
+        }
+        if (profileError) {
+          console.error('User profiles query failed:', profileError);
+        }
+      }
+
+      // Show error if business_cards query failed (primary source)
+      if (cardError) {
+        console.error('Failed to fetch from business_cards:', cardError);
         toast({
-          title: 'Error',
-          description: 'Failed to fetch users',
+          title: 'Warning',
+          description: 'Could not fetch data from business_cards table. Some contacts may not be visible.',
           variant: 'destructive',
         });
-      } else {
-        // Convert user_profiles to match User interface
-        const convertedUsers = (data || []).map(profile => ({
-          id: profile.id,
-          email: profile.email,
-          created_at: profile.created_at,
-          email_confirmed_at: profile.created_at, // Assume confirmed since they have a profile
-          last_sign_in_at: profile.updated_at
-        }));
-        setUsers(convertedUsers);
       }
+
+      // Show error if both queries failed
+      if (cardError && profileError) {
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch users from both business_cards and user_profiles tables',
+          variant: 'destructive',
+        });
+      }
+
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in fetchUsers:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch users',
@@ -89,6 +154,20 @@ export default function UserManagement() {
       return;
     }
 
+    // Check if email already exists
+    const emailExists = users.some(user => 
+      user.email.toLowerCase() === newUserEmail.trim().toLowerCase()
+    );
+    
+    if (emailExists) {
+      toast({
+        title: 'Email Already Exists',
+        description: `A contact with email ${newUserEmail} already exists in your system. Please use a different email address.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setCreating(true);
 
     try {
@@ -107,16 +186,23 @@ export default function UserManagement() {
         });
       } else if (data && data.success) {
         toast({
-          title: 'Success',
-          description: `User ${newUserEmail} created successfully`,
+          title: 'Success! 🎉',
+          description: `Contact ${newUserEmail} created successfully. They can now log in and create their business card.`,
         });
         setNewUserEmail('');
         setNewUserPassword('');
         fetchUsers(); // Refresh the user list
       } else {
+        // Handle specific error cases
+        let errorMessage = data?.message || 'Failed to create user';
+        
+        if (errorMessage.includes('already exists')) {
+          errorMessage = `A contact with email ${newUserEmail} already exists. Please use a different email address or check the contact list below.`;
+        }
+        
         toast({
-          title: 'Error',
-          description: data?.message || 'Failed to create user',
+          title: 'Unable to Create Contact',
+          description: errorMessage,
           variant: 'destructive',
         });
       }
@@ -288,22 +374,74 @@ export default function UserManagement() {
             </button>
           </div>
         </form>
+        
+        {/* Existing Emails Helper */}
+        {users.length > 0 && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">📧 Existing Email Addresses:</h4>
+            <div className="flex flex-wrap gap-1">
+              {users.slice(0, 10).map((user, index) => (
+                <span 
+                  key={index} 
+                  className="inline-block bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full"
+                >
+                  {user.email}
+                </span>
+              ))}
+              {users.length > 10 && (
+                <span className="text-blue-600 text-xs px-2 py-1">
+                  +{users.length - 10} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Users List */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold">📋 All Contacts & Users ({users.length})</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            All users who can create and manage business cards
-          </p>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold">📋 All Contacts ({users.length})</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              All users who can create and manage business cards
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setLoading(true);
+              fetchUsers();
+            }}
+            className="bg-blue-100 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-200 transition-colors text-sm flex items-center gap-1"
+          >
+            🔄 Refresh
+          </button>
         </div>
         
-        {users.length === 0 ? (
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading contacts...</p>
+          </div>
+        ) : users.length === 0 ? (
           <div className="p-8 text-center">
             <div className="text-gray-400 text-4xl mb-4">👥</div>
-            <p className="text-gray-500 text-lg">No contacts created yet</p>
-            <p className="text-gray-400 text-sm">Use the form above to create your first contact</p>
+            <p className="text-gray-500 text-lg">No contacts found</p>
+            <p className="text-gray-400 text-sm mb-4">This could mean:</p>
+            <ul className="text-gray-400 text-sm text-left max-w-md mx-auto mb-4">
+              <li>• No contacts have been created yet</li>
+              <li>• Database connection issue</li>
+              <li>• Check browser console for errors</li>
+            </ul>
+            <button
+              onClick={() => {
+                setLoading(true);
+                fetchUsers();
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
