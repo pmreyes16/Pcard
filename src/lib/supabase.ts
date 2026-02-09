@@ -3,16 +3,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = 'https://cuspqjialyzpxgegjsgy.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1c3BxamlhbHl6cHhnZWdqc2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MDEzNDAsImV4cCI6MjA3NTA3NzM0MH0.ywITnSRgbMxCBlDhQSzEj5TmM_cbeLTKExO3KtAdmD8';
 
-<<<<<<< HEAD
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  }
-});
-=======
 // Create a singleton Supabase client to avoid multiple instances
 let supabaseInstance: SupabaseClient | null = null;
 
@@ -23,6 +13,7 @@ const getSupabaseClient = () => {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
+        flowType: 'pkce',
         storageKey: 'ecard-auth'
       }
     });
@@ -31,7 +22,6 @@ const getSupabaseClient = () => {
 };
 
 export const supabase = getSupabaseClient();
->>>>>>> 63ac77d (urlslug)
 
 // Database Types
 export interface BusinessCard {

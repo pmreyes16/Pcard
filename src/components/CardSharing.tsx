@@ -33,7 +33,7 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const generateQRCode = (slug: string) => {
-    const publicUrl = `${window.location.origin}/card/${card?.full_name?.toLowerCase().replace(/\s+/g, '-')}`;
+    const publicUrl = `${window.location.origin}/${slug}`;
     // Using QR Server API for QR code generation
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicUrl)}`;
     setQrCodeUrl(qrUrl);
@@ -62,9 +62,9 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const shareViaEmail = () => {
-    if (!card?.full_name) return;
+    if (!card?.slug || !card?.full_name) return;
     
-    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
+    const publicUrl = `${window.location.origin}/${card.slug}`;
     const subject = `Check out ${card.full_name}'s Business Card`;
     const body = `Hi there!\n\nI'd like to share my digital business card with you: ${publicUrl}\n\nBest regards,\n${card.full_name}`;
     
@@ -74,22 +74,10 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
     trackShare('email');
   };
 
-  const shareViaSMS = () => {
-    if (!card?.full_name) return;
-    
-    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
-    const message = `Check out my digital business card: ${publicUrl} - ${card.full_name}`;
-    
-    const smsUrl = `sms:?body=${encodeURIComponent(message)}`;
-    window.open(smsUrl);
-    
-    trackShare('sms');
-  };
-
   const shareOnSocial = (platform: string) => {
-    if (!card?.full_name) return;
+    if (!card?.slug || !card?.full_name) return;
     
-    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
+    const publicUrl = `${window.location.origin}/${card.slug}`;
     const text = `Check out ${card.full_name}'s digital business card`;
     
     let shareUrl = '';
@@ -127,9 +115,9 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
   };
 
   const webShare = async () => {
-    if (!card?.full_name) return;
+    if (!card?.slug || !card?.full_name) return;
     
-    const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
+    const publicUrl = `${window.location.origin}/${card.slug}`;
     
     if (navigator.share) {
       try {
@@ -165,7 +153,7 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
     );
   }
 
-  const publicUrl = `${window.location.origin}/card/${card.full_name.toLowerCase().replace(/\s+/g, '-')}`;
+  const publicUrl = `${window.location.origin}/${card.slug}`;
 
   return (
     <div className="space-y-6">
@@ -273,15 +261,6 @@ export default function CardSharing({ userId, refreshKey }: CardSharingProps) {
           >
             <span className="text-xl sm:text-2xl">📧</span>
             <span className="text-xs sm:text-sm font-medium text-gray-700">Email</span>
-          </button>
-
-          {/* SMS */}
-          <button
-            onClick={shareViaSMS}
-            className="flex flex-col items-center space-y-1 sm:space-y-2 p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-xl sm:text-2xl">💬</span>
-            <span className="text-xs sm:text-sm font-medium text-gray-700">SMS</span>
           </button>
 
           {/* WhatsApp */}

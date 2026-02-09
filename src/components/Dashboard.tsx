@@ -3,29 +3,22 @@ import { supabase } from '../lib/supabase';
 import CardEditor from './Card/CardEditor';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CardSharing from './CardSharing';
-<<<<<<< HEAD
-import AdminPage from './AdminPage';
-=======
 import UserManagement from './Auth/UserManagement';
->>>>>>> 63ac77d (urlslug)
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('editor');
   const [refreshSharing, setRefreshSharing] = useState(0);
-<<<<<<< HEAD
   const [isAdmin, setIsAdmin] = useState(false);
-=======
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  // Define superadmin emails (you can modify this list)
+  // Define superadmin emails as fallback (you can modify this list)
   const superAdminEmails = [
     'pmreyes16@yahoo.com',
+    'pmreyes16@gmail.com',
     'admin@pcard.com',
     'superadmin@pcard.com'
   ];
->>>>>>> 63ac77d (urlslug)
 
   useEffect(() => {
     checkUser();
@@ -42,7 +35,6 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
     
-<<<<<<< HEAD
     if (user) {
       console.log('Current user:', user.email, 'User ID:', user.id);
       
@@ -60,10 +52,8 @@ export default function Dashboard() {
           setIsAdmin(true);
           console.log('User is admin with role:', adminData.role);
         } else {
-          // Fallback: Check by email pattern
-          if (user.email === 'pmreyes16@gmail.com' || 
-              user.email === 'admin@pcard.com' || 
-              user.email?.includes('admin')) {
+          // Fallback: Check by email in superadmin list
+          if (user.email && superAdminEmails.includes(user.email.toLowerCase())) {
             setIsAdmin(true);
             console.log('User is admin by email pattern (fallback)');
           } else {
@@ -73,19 +63,11 @@ export default function Dashboard() {
       } catch (error) {
         console.error('Database admin check failed, using email fallback:', error);
         // If database check fails completely, use email fallback
-        if (user.email === 'pmreyes16@gmail.com' || 
-            user.email === 'admin@pcard.com' || 
-            user.email?.includes('admin')) {
+        if (user.email && superAdminEmails.includes(user.email.toLowerCase())) {
           setIsAdmin(true);
           console.log('User is admin by email pattern (database error fallback)');
         }
       }
-=======
-    // Check if user is superadmin
-    if (user && user.email) {
-      const isAdmin = superAdminEmails.includes(user.email.toLowerCase());
-      setIsSuperAdmin(isAdmin);
->>>>>>> 63ac77d (urlslug)
     }
     
     setLoading(false);
@@ -108,6 +90,10 @@ export default function Dashboard() {
     return null;
   }
 
+  const isSuperAdmin = Boolean(
+    user?.email && superAdminEmails.includes(user.email.toLowerCase())
+  );
+
   const baseTabs = [
     { id: 'editor', name: 'Edit Card', icon: '✏️' },
     { id: 'analytics', name: 'Analytics', icon: '📊' },
@@ -115,10 +101,7 @@ export default function Dashboard() {
     ...(isAdmin ? [{ id: 'admin', name: 'Admin', icon: '⚙️' }] : [])
   ];
 
-  // Add user management tab for superadmins
-  const tabs = isSuperAdmin 
-    ? [...baseTabs, { id: 'users', name: 'Add Contacts', icon: '👥' }]
-    : baseTabs;
+  const tabs = baseTabs;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -182,11 +165,7 @@ export default function Dashboard() {
           {activeTab === 'editor' && <CardEditor userId={user.id} />}
           {activeTab === 'analytics' && <AnalyticsDashboard userId={user.id} />}
           {activeTab === 'sharing' && <CardSharing userId={user.id} refreshKey={refreshSharing} />}
-<<<<<<< HEAD
-          {activeTab === 'admin' && isAdmin && <AdminPage />}
-=======
-          {activeTab === 'users' && isSuperAdmin && <UserManagement />}
->>>>>>> 63ac77d (urlslug)
+          {activeTab === 'admin' && isAdmin && <UserManagement />}
         </div>
       </div>
     </div>

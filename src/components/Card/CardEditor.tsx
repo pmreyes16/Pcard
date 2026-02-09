@@ -51,6 +51,42 @@ export default function CardEditor({ userId }: CardEditorProps) {
       .trim();
   };
 
+  const regenerateSlug = async () => {
+    if (!card.full_name) return;
+    
+    let baseSlug = generateSlug(card.full_name);
+    let finalSlug = baseSlug;
+    let counter = 0;
+    
+    // Check if slug exists and increment if needed
+    while (counter < 10) {
+      try {
+        const { data: conflictingCards, error: checkError } = await supabase
+          .from('business_cards')
+          .select('id, user_id')
+          .eq('slug', finalSlug);
+        
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('Error checking slug:', checkError);
+          break;
+        }
+        
+        // Check if there's a conflict with a different user's card
+        const hasConflict = conflictingCards && conflictingCards.some(c => c.user_id !== userId);
+        
+        if (!hasConflict) break;
+        
+        counter++;
+        finalSlug = `${baseSlug}-${counter}`;
+      } catch (error) {
+        console.error('Error checking slug:', error);
+        break;
+      }
+    }
+    
+    setCard({ ...card, slug: finalSlug });
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -67,32 +103,34 @@ export default function CardEditor({ userId }: CardEditorProps) {
       // Generate slug if it doesn't exist
       let cardData = { ...card, user_id: userId, updated_at: new Date().toISOString() };
       
-      if (!cardData.slug && cardData.full_name) {
+      if ((!cardData.slug || cardData.slug === '') && cardData.full_name) {
         let baseSlug = generateSlug(cardData.full_name);
         let finalSlug = baseSlug;
         let counter = 0;
         
         // Check if slug exists and increment if needed
         while (counter < 10) { // Prevent infinite loops
-          const { data: existingCard, error: checkError } = await supabase
+          const { data: conflictingCards, error: checkError } = await supabase
             .from('business_cards')
-            .select('id')
-            .eq('slug', finalSlug)
-            .neq('user_id', userId) // Don't conflict with user's own cards
-            .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no match
+            .select('id, user_id')
+            .eq('slug', finalSlug);
           
           if (checkError && checkError.code !== 'PGRST116') {
             console.error('Error checking slug:', checkError);
             break;
           }
           
-          if (!existingCard) break;
+          // Check if there's a conflict with a different user's card
+          const hasConflict = conflictingCards && conflictingCards.some(c => c.user_id !== userId);
+          
+          if (!hasConflict) break;
           
           counter++;
           finalSlug = `${baseSlug}-${counter}`;
         }
         
         cardData.slug = finalSlug;
+        console.log('Generated slug for', cardData.full_name, ':', finalSlug);
       }
 
       console.log('Attempting to save card data:', cardData);
@@ -416,6 +454,32 @@ export default function CardEditor({ userId }: CardEditorProps) {
               </div>
             </div>
           </div>
+
+          {/* Public URL Section */}
+          {card.full_name && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Public URL</h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Your public card URL:</label>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600">
+                    {window.location.origin}/{card.slug || generateSlug(card.full_name)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={regenerateSlug}
+                    className="px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors text-xs"
+                    title="Regenerate URL from current name"
+                  >
+                    🔄 Update URL
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  This URL is automatically generated from your Full Name. Click "Update URL" to regenerate it if you've changed your name.
+                </p>
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"

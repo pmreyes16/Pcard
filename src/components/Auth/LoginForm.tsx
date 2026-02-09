@@ -7,11 +7,7 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onSuccess, onForgotPassword }: LoginFormProps) {
-<<<<<<< HEAD
   const [username, setUsername] = useState('');
-=======
-  const [email, setEmail] = useState('');
->>>>>>> 63ac77d (urlslug)
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +18,6 @@ export default function LoginForm({ onSuccess, onForgotPassword }: LoginFormProp
     setError('');
 
     try {
-<<<<<<< HEAD
       // Handle both username and email format login
       let emailToUse = username;
       
@@ -35,30 +30,10 @@ export default function LoginForm({ onSuccess, onForgotPassword }: LoginFormProp
 
       const { error } = await supabase.auth.signInWithPassword({ 
         email: emailToUse, 
-=======
-      // Basic validation
-      if (!email || !password) {
-        setError('Please enter both email and password');
-        setLoading(false);
-        return;
-      }
-
-      if (!email.includes('@')) {
-        setError('Please enter a valid email address');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Attempting login with email:', email);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({ 
-        email: email.trim().toLowerCase(), 
->>>>>>> 63ac77d (urlslug)
         password 
       });
       
       if (error) {
-<<<<<<< HEAD
         // Try with original username if the converted email fails
         if (!username.includes('@')) {
           console.log('Retrying with original username as email...');
@@ -83,29 +58,6 @@ export default function LoginForm({ onSuccess, onForgotPassword }: LoginFormProp
       console.error('Login error:', error);
       setError(error.message || 'Login failed');
     } finally {
-=======
-        console.error('Login error:', error);
-        
-        // Provide more specific error messages
-        let errorMessage = error.message;
-        if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password. If you need to create an account, please click "Sign Up" below. For testing, you can create a user in the Supabase dashboard.';
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Please check your email and click the confirmation link before signing in.';
-        } else if (error.message.includes('Too many requests')) {
-          errorMessage = 'Too many login attempts. Please wait a few minutes and try again.';
-        }
-        
-        setError(errorMessage);
-        setLoading(false);
-      } else {
-        console.log('Login successful:', data);
-        onSuccess();
-      }
-    } catch (err) {
-      console.error('Unexpected login error:', err);
-      setError('An unexpected error occurred. Please try again.');
->>>>>>> 63ac77d (urlslug)
       setLoading(false);
     }
   };
@@ -115,15 +67,9 @@ export default function LoginForm({ onSuccess, onForgotPassword }: LoginFormProp
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
         <input
-<<<<<<< HEAD
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-=======
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
->>>>>>> 63ac77d (urlslug)
           className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
           required
         />
@@ -157,12 +103,6 @@ export default function LoginForm({ onSuccess, onForgotPassword }: LoginFormProp
             Forgot your password?
           </button>
         )}
-<<<<<<< HEAD
-=======
-        <p className="text-xs sm:text-sm text-gray-600 text-center">
-          Access restricted to authorized users only
-        </p>
->>>>>>> 63ac77d (urlslug)
       </div>
     </form>
   );
