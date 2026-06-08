@@ -5,39 +5,35 @@ import CardPreview from './CardPreview';
 
 interface CardEditorProps {
   userId: string;
+  cardToEdit?: any;
+  onCardEditComplete?: () => void;
 }
 
-export default function CardEditor({ userId }: CardEditorProps) {
+export default function CardEditor({ userId, cardToEdit, onCardEditComplete }: CardEditorProps) {
   const [card, setCard] = useState<Partial<BusinessCard>>({});
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   useEffect(() => {
-    loadCard();
-  }, [userId]);
+    if (cardToEdit) {
+      // Edit mode - load the card to edit
+      setCard(cardToEdit);
+      setIsEditMode(true);
+    } else {
+      // Create mode - start with blank form
+      loadCard();
+      setIsEditMode(false);
+    }
+  }, [cardToEdit, userId]);
 
   const loadCard = async () => {
     try {
-      const { data, error } = await supabase
-        .from('business_cards')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading card:', error);
-        return;
-      }
-      
-      if (data) {
-        setCard(data);
-      } else {
-        // Initialize with default values including theme color
-        setCard({
-          theme_color: '#3B82F6',
-          is_public: true
-        });
-      }
+      // Always start with a blank form for creating new cards
+      setCard({
+        theme_color: '#3B82F6',
+        is_public: true
+      });
     } catch (error) {
       console.error('Unexpected error loading card:', error);
     }
@@ -135,31 +131,19 @@ export default function CardEditor({ userId }: CardEditorProps) {
 
       console.log('Attempting to save card data:', cardData);
 
-      // Try to check if card exists for this user first
-      const { data: existingCard, error: checkError } = await supabase
-        .from('business_cards')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking existing card:', checkError);
-        throw checkError;
-      }
-
       let saveError = null;
-      
-      if (existingCard) {
+
+      if (isEditMode && cardToEdit?.id) {
         // Update existing card
-        console.log('Updating existing card for user:', userId);
+        console.log('Updating card:', cardToEdit.id);
         const { error } = await supabase
           .from('business_cards')
           .update(cardData)
-          .eq('user_id', userId);
+          .eq('id', cardToEdit.id);
         saveError = error;
       } else {
-        // Insert new card
-        console.log('Inserting new card for user:', userId);
+        // Create new card
+        console.log('Creating new card');
         const { error } = await supabase
           .from('business_cards')
           .insert({
@@ -181,8 +165,19 @@ export default function CardEditor({ userId }: CardEditorProps) {
       } else {
         setSaved(true);
         console.log('Card saved successfully!');
-        // Refresh the card data
-        await loadCard();
+        
+        if (isEditMode) {
+          // After edit, call the completion callback
+          if (onCardEditComplete) {
+            onCardEditComplete();
+          }
+        } else {
+          // After create, clear the form for next card
+          setCard({
+            theme_color: '#3B82F6',
+            is_public: true
+          });
+        }
       }
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -199,44 +194,20 @@ export default function CardEditor({ userId }: CardEditorProps) {
     const userId = supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         try {
-          // Check if card exists first
-          const { data: existingCard, error: fetchError } = await supabase
-            .from('business_cards')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Error checking existing card:', fetchError);
-            return;
-          }
-
           const cardData = {
             ...card,
             profile_picture_url: url,
             updated_at: new Date().toISOString()
           };
 
-          let saveError = null;
-          
-          if (existingCard) {
-            // Update existing record
-            const { error } = await supabase
-              .from('business_cards')
-              .update(cardData)
-              .eq('user_id', user.id);
-            saveError = error;
-          } else {
-            // Insert new record
-            const { error } = await supabase
-              .from('business_cards')
-              .insert({
-                ...cardData,
-                user_id: user.id,
-                created_at: new Date().toISOString()
-              });
-            saveError = error;
-          }
+          // Always insert a new card
+          const { error: saveError } = await supabase
+            .from('business_cards')
+            .insert({
+              ...cardData,
+              user_id: user.id,
+              created_at: new Date().toISOString()
+            });
 
           if (saveError) {
             console.error('Auto-save error:', saveError);
@@ -253,7 +224,9 @@ export default function CardEditor({ userId }: CardEditorProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 max-h-[80vh] overflow-y-auto">
-        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800">Edit Your Card</h2>
+        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800">
+          {isEditMode ? '✏️ Edit Card' : '📝 Create New Card'}
+        </h2>
         <form onSubmit={handleSave} className="space-y-4 sm:space-y-6">
           
           {/* Profile Picture */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, BusinessCard } from '../../lib/supabase';
 import { toast } from '@/components/ui/use-toast';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface User {
   id: string;
@@ -10,12 +11,46 @@ interface User {
   last_sign_in_at: string | null;
 }
 
+interface BusinessCardFormData {
+  full_name: string;
+  email: string;
+  mobile_phone: string;
+  company: string;
+  job_title: string;
+  address: string;
+  website: string;
+  linkedin_url: string;
+  twitter_url: string;
+  instagram_url: string;
+  facebook_url: string;
+  bio: string;
+  theme_color: string;
+  is_public: boolean;
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [creating, setCreating] = useState(false);
+  const [creatingBusinessCard, setCreatingBusinessCard] = useState(false);
+  const [businessCardData, setBusinessCardData] = useState<BusinessCardFormData>({
+    full_name: '',
+    email: '',
+    mobile_phone: '',
+    company: '',
+    job_title: '',
+    address: '',
+    website: '',
+    linkedin_url: '',
+    twitter_url: '',
+    instagram_url: '',
+    facebook_url: '',
+    bio: '',
+    theme_color: '#3B82F6',
+    is_public: true
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -171,7 +206,7 @@ export default function UserManagement() {
     setCreating(true);
 
     try {
-      // Call the Supabase Edge Function or RPC to create user
+      // Call the Supabase Edge Function or RPC to create contact
       const { data, error } = await supabase.rpc('create_test_user', {
         user_email: newUserEmail.trim().toLowerCase(),
         user_password: newUserPassword
@@ -181,7 +216,7 @@ export default function UserManagement() {
         console.error('Error creating user:', error);
         toast({
           title: 'Error',
-          description: error.message || 'Failed to create user',
+          description: error.message || 'Failed to create contact',
           variant: 'destructive',
         });
       } else if (data && data.success) {
@@ -194,7 +229,7 @@ export default function UserManagement() {
         fetchUsers(); // Refresh the user list
       } else {
         // Handle specific error cases
-        let errorMessage = data?.message || 'Failed to create user';
+        let errorMessage = data?.message || 'Failed to create contact';
         
         if (errorMessage.includes('already exists')) {
           errorMessage = `A contact with email ${newUserEmail} already exists. Please use a different email address or check the contact list below.`;
@@ -216,6 +251,166 @@ export default function UserManagement() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const createUserWithBusinessCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!businessCardData.full_name || !businessCardData.email || !businessCardData.mobile_phone || !businessCardData.company) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all required fields (name, email, phone, company)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!businessCardData.email.includes('@')) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid email address',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check if email already exists
+    const emailExists = users.some(user => 
+      user.email.toLowerCase() === businessCardData.email.trim().toLowerCase()
+    );
+    
+    if (emailExists) {
+      toast({
+        title: 'Email Already Exists',
+        description: `A contact with email ${businessCardData.email} already exists. Please use a different email address.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCreatingBusinessCard(true);
+
+    try {
+      console.log('Creating contact with business card using database function...');
+      
+      // First, call the database function to create business card
+      const { data, error } = await supabase.rpc('create_contact_with_business_card', {
+        p_email: businessCardData.email.trim().toLowerCase(),
+        p_full_name: businessCardData.full_name,
+        p_mobile_phone: businessCardData.mobile_phone,
+        p_company: businessCardData.company,
+        p_address: businessCardData.address,
+        p_password: 'TempPassword123!', // Default password
+        p_job_title: businessCardData.job_title || '',
+        p_website: businessCardData.website || '',
+        p_linkedin_url: businessCardData.linkedin_url || '',
+        p_twitter_url: businessCardData.twitter_url || '',
+        p_instagram_url: businessCardData.instagram_url || '',
+        p_facebook_url: businessCardData.facebook_url || '',
+        p_bio: businessCardData.bio || '',
+        p_theme_color: businessCardData.theme_color,
+        p_is_public: businessCardData.is_public
+      });
+
+      console.log('Database function result:', { data, error });
+
+      if (error) {
+        console.error('Error calling database function:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to create contact and business card',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (data && typeof data === 'object' && !data.success) {
+        toast({
+          title: 'Creation Failed',
+          description: data.message || 'Failed to create contact and business card',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (data && data.success) {
+        console.log('Business card created, now creating auth user...');
+        
+        // Now create the auth user (this will generate a new user_id)
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: businessCardData.email.trim().toLowerCase(),
+          password: 'TempPassword123!', // Default password, user can reset it
+        });
+
+        if (authError) {
+          console.error('Error creating auth user:', authError);
+          // Business card was created but auth user failed - still show partial success
+          toast({
+            title: 'Partial Success ⚠️',
+            description: `Business card created successfully, but auth user creation failed: ${authError.message}. You may need to create the auth user manually.`,
+          });
+        } else {
+          console.log('Auth user created successfully:', authData.user?.id);
+          
+          // Update the business card with the correct user_id from auth
+          if (authData.user?.id) {
+            console.log('Updating business card with correct auth user_id...');
+            const { error: updateError } = await supabase
+              .from('business_cards')
+              .update({ user_id: authData.user.id })
+              .eq('id', data.card_id);
+              
+            if (updateError) {
+              console.error('Failed to update business card user_id:', updateError);
+            }
+          }
+          
+          toast({
+            title: 'Success! 🎉',
+            description: `Contact ${businessCardData.full_name} and their business card created successfully! Default password is TempPassword123! - they should change it on first login.`,
+          });
+        }
+
+        // Reset the form
+        setBusinessCardData({
+          full_name: '',
+          email: '',
+          mobile_phone: '',
+          company: '',
+          job_title: '',
+          address: '',
+          website: '',
+          linkedin_url: '',
+          twitter_url: '',
+          instagram_url: '',
+          facebook_url: '',
+          bio: '',
+          theme_color: '#3B82F6',
+          is_public: true
+        });
+
+        fetchUsers(); // Refresh the user list
+      } else {
+        toast({
+          title: 'Unexpected Response',
+          description: 'Received unexpected response from server',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingBusinessCard(false);
+    }
+  };
+
+  const handleBusinessCardInputChange = (field: keyof BusinessCardFormData, value: string | boolean) => {
+    setBusinessCardData(prev => ({ ...prev, [field]: value }));
   };
 
   const sendPasswordReset = async (email: string) => {
@@ -257,9 +452,17 @@ export default function UserManagement() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       {/* Header Section */}
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold mb-2">👥 Contact Management</h2>
-        <p className="text-gray-600">Create and manage users who can create digital business cards</p>
+        <h2 className="text-xl sm:text-2xl font-bold mb-2">👥 Contact & Business Card Management</h2>
+        <p className="text-gray-600">Create and manage contacts and their digital business cards</p>
       </div>
+
+      <Tabs defaultValue="manage" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="manage">👥 Manage Contacts</TabsTrigger>
+          <TabsTrigger value="create-card">📇 Create Contact & Business Card</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="manage">
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -300,7 +503,7 @@ export default function UserManagement() {
           <div>
             <h3 className="text-lg font-semibold text-green-800 mb-1">➕ Add New Contact</h3>
             <p className="text-sm text-green-700">
-              Create a new user account for someone to manage their business card
+              Create a new contact account for someone to manage their business card
             </p>
           </div>
           <button
@@ -319,7 +522,7 @@ export default function UserManagement() {
       <div id="create-user-form" className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">🆕 Contact Creation Form</h3>
         <p className="text-sm text-gray-600 mb-4">
-          Fill out the form below to create a new user account. They will be able to login and create their digital business card.
+              Fill out the form below to create a new contact account. They will be able to login and create their digital business card.
         </p>
         <form onSubmit={createUser} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -404,7 +607,7 @@ export default function UserManagement() {
           <div>
             <h3 className="text-lg font-semibold">📋 All Contacts ({users.length})</h3>
             <p className="text-sm text-gray-600 mt-1">
-              All users who can create and manage business cards
+              All contacts who can create and manage business cards
             </p>
           </div>
           <button
@@ -499,6 +702,264 @@ export default function UserManagement() {
           </div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="create-card">
+          <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+            <h3 className="text-lg font-semibold mb-4">📇 Create Contact with Business Card</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Create a complete contact account with business card details. A default password will be assigned that they can change on first login.
+            </p>
+            
+            <form onSubmit={createUserWithBusinessCard} className="space-y-6">
+              {/* Personal Information */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-md font-semibold mb-4 text-gray-800">👤 Personal Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={businessCardData.full_name}
+                      onChange={(e) => handleBusinessCardInputChange('full_name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={businessCardData.email}
+                      onChange={(e) => handleBusinessCardInputChange('email', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="john@example.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mobile Phone *
+                    </label>
+                    <input
+                      type="tel"
+                      value={businessCardData.mobile_phone}
+                      onChange={(e) => handleBusinessCardInputChange('mobile_phone', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="+1 (555) 123-4567"
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Bio (Optional)
+                    </label>
+                    <textarea
+                      value={businessCardData.bio}
+                      onChange={(e) => handleBusinessCardInputChange('bio', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                      placeholder="Brief description about the person..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Company Information */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-md font-semibold mb-4 text-gray-800">🏢 Company Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={businessCardData.company}
+                      onChange={(e) => handleBusinessCardInputChange('company', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Acme Corporation"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Title
+                    </label>
+                    <input
+                      type="text"
+                      value={businessCardData.job_title}
+                      onChange={(e) => handleBusinessCardInputChange('job_title', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Software Engineer"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company Address *
+                    </label>
+                    <textarea
+                      value={businessCardData.address}
+                      onChange={(e) => handleBusinessCardInputChange('address', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={2}
+                      placeholder="123 Business St, City, State 12345"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Website
+                    </label>
+                    <input
+                      type="url"
+                      value={businessCardData.website}
+                      onChange={(e) => handleBusinessCardInputChange('website', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://www.example.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Social Media */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-md font-semibold mb-4 text-gray-800">🌐 Social Media (Optional)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      LinkedIn URL
+                    </label>
+                    <input
+                      type="url"
+                      value={businessCardData.linkedin_url}
+                      onChange={(e) => handleBusinessCardInputChange('linkedin_url', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://linkedin.com/in/username"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Twitter URL
+                    </label>
+                    <input
+                      type="url"
+                      value={businessCardData.twitter_url}
+                      onChange={(e) => handleBusinessCardInputChange('twitter_url', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://twitter.com/username"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Instagram URL
+                    </label>
+                    <input
+                      type="url"
+                      value={businessCardData.instagram_url}
+                      onChange={(e) => handleBusinessCardInputChange('instagram_url', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://instagram.com/username"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Facebook URL
+                    </label>
+                    <input
+                      type="url"
+                      value={businessCardData.facebook_url}
+                      onChange={(e) => handleBusinessCardInputChange('facebook_url', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://facebook.com/username"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Settings */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-md font-semibold mb-4 text-gray-800">⚙️ Card Settings</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Theme Color
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={businessCardData.theme_color}
+                        onChange={(e) => handleBusinessCardInputChange('theme_color', e.target.value)}
+                        className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={businessCardData.theme_color}
+                        onChange={(e) => handleBusinessCardInputChange('theme_color', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="#3B82F6"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="is_public"
+                      checked={businessCardData.is_public}
+                      onChange={(e) => handleBusinessCardInputChange('is_public', e.target.checked)}
+                      className="mr-2"
+                    />
+                    <label htmlFor="is_public" className="text-sm font-medium text-gray-700">
+                      Make card publicly viewable
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex gap-4 pt-4">
+                <button
+                  type="submit"
+                  disabled={creatingBusinessCard}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-semibold"
+                >
+                  {creatingBusinessCard && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {creatingBusinessCard ? 'Creating...' : '📇 Create Contact & Business Card'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBusinessCardData({
+                    full_name: '',
+                    email: '',
+                    mobile_phone: '',
+                    company: '',
+                    job_title: '',
+                    address: '',
+                    website: '',
+                    linkedin_url: '',
+                    twitter_url: '',
+                    instagram_url: '',
+                    facebook_url: '',
+                    bio: '',
+                    theme_color: '#3B82F6',
+                    is_public: true
+                  })}
+                  className="bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 text-sm font-semibold"
+                >
+                  Clear Form
+                </button>
+              </div>
+            </form>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

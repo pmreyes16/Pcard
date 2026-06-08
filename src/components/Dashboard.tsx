@@ -4,6 +4,7 @@ import CardEditor from './Card/CardEditor';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CardSharing from './CardSharing';
 import UserManagement from './Auth/UserManagement';
+import UserCardsList from './UserCardsList';
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('editor');
   const [refreshSharing, setRefreshSharing] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [cardToEdit, setCardToEdit] = useState<any>(null);
 
   // Define superadmin emails as fallback (you can modify this list)
   const superAdminEmails = [
@@ -78,6 +80,11 @@ export default function Dashboard() {
     window.location.reload();
   };
 
+  const handleEditCard = (card: any) => {
+    setCardToEdit(card);
+    setActiveTab('editor');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -95,7 +102,8 @@ export default function Dashboard() {
   );
 
   const baseTabs = [
-    { id: 'editor', name: 'Edit Card', icon: '✏️' },
+    { id: 'editor', name: 'Create New Card', icon: '✏️' },
+    { id: 'user-cards', name: 'User Cards', icon: '📇' },
     { id: 'analytics', name: 'Analytics', icon: '📊' },
     { id: 'sharing', name: 'Share', icon: '🔗' },
     ...(isAdmin ? [{ id: 'admin', name: 'Admin', icon: '⚙️' }] : [])
@@ -162,7 +170,8 @@ export default function Dashboard() {
 
         {/* Tab Content */}
         <div className="tab-content">
-          {activeTab === 'editor' && <CardEditor userId={user.id} />}
+          {activeTab === 'editor' && <CardEditor userId={user.id} cardToEdit={cardToEdit} onCardEditComplete={() => setCardToEdit(null)} />}
+          {activeTab === 'user-cards' && <UserCardsList userId={user.id} isAdmin={isAdmin} onEditCard={handleEditCard} />}
           {activeTab === 'analytics' && <AnalyticsDashboard userId={user.id} />}
           {activeTab === 'sharing' && <CardSharing userId={user.id} refreshKey={refreshSharing} />}
           {activeTab === 'admin' && isAdmin && <UserManagement />}
