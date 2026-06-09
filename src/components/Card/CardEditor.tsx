@@ -39,48 +39,33 @@ export default function CardEditor({ userId, cardToEdit, onCardEditComplete }: C
     }
   };
 
+  const generateRandomString = (length: number = 24) => {
+    // Use URL-safe characters: alphanumeric plus - and _
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const generateSlug = (name: string) => {
-    return name
+    const baseSlug = name
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, '')
       .replace(/\s+/g, '-')
       .trim();
+    
+    // Add random string to slug for security (makes it 24 chars of random data)
+    const randomString = generateRandomString(24);
+    return `${baseSlug}-${randomString}`;
   };
 
   const regenerateSlug = async () => {
     if (!card.full_name) return;
     
-    let baseSlug = generateSlug(card.full_name);
-    let finalSlug = baseSlug;
-    let counter = 0;
-    
-    // Check if slug exists and increment if needed
-    while (counter < 10) {
-      try {
-        const { data: conflictingCards, error: checkError } = await supabase
-          .from('business_cards')
-          .select('id, user_id')
-          .eq('slug', finalSlug);
-        
-        if (checkError && checkError.code !== 'PGRST116') {
-          console.error('Error checking slug:', checkError);
-          break;
-        }
-        
-        // Check if there's a conflict with a different user's card
-        const hasConflict = conflictingCards && conflictingCards.some(c => c.user_id !== userId);
-        
-        if (!hasConflict) break;
-        
-        counter++;
-        finalSlug = `${baseSlug}-${counter}`;
-      } catch (error) {
-        console.error('Error checking slug:', error);
-        break;
-      }
-    }
-    
-    setCard({ ...card, slug: finalSlug });
+    const newSlug = generateSlug(card.full_name);
+    setCard({ ...card, slug: newSlug });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -100,31 +85,7 @@ export default function CardEditor({ userId, cardToEdit, onCardEditComplete }: C
       let cardData = { ...card, user_id: userId, updated_at: new Date().toISOString() };
       
       if ((!cardData.slug || cardData.slug === '') && cardData.full_name) {
-        let baseSlug = generateSlug(cardData.full_name);
-        let finalSlug = baseSlug;
-        let counter = 0;
-        
-        // Check if slug exists and increment if needed
-        while (counter < 10) { // Prevent infinite loops
-          const { data: conflictingCards, error: checkError } = await supabase
-            .from('business_cards')
-            .select('id, user_id')
-            .eq('slug', finalSlug);
-          
-          if (checkError && checkError.code !== 'PGRST116') {
-            console.error('Error checking slug:', checkError);
-            break;
-          }
-          
-          // Check if there's a conflict with a different user's card
-          const hasConflict = conflictingCards && conflictingCards.some(c => c.user_id !== userId);
-          
-          if (!hasConflict) break;
-          
-          counter++;
-          finalSlug = `${baseSlug}-${counter}`;
-        }
-        
+        const finalSlug = generateSlug(cardData.full_name);
         cardData.slug = finalSlug;
         console.log('Generated slug for', cardData.full_name, ':', finalSlug);
       }

@@ -7,15 +7,6 @@ export default function PublicCardViewer() {
   const navigate = useNavigate();
   const [card, setCard] = useState<BusinessCard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showContactForm, setShowContactForm] = useState(false);
-  const [contactData, setContactData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    message: ''
-  });
-  const [contactSubmitting, setContactSubmitting] = useState(false);
-  const [contactSuccess, setContactSuccess] = useState(false);
 
   useEffect(() => {
     if (slug) {
@@ -88,34 +79,6 @@ export default function PublicCardViewer() {
     } catch (error) {
       console.log('Error recording view:', error);
     }
-  };
-
-  const handleContact = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!card) return;
-
-    setContactSubmitting(true);
-    
-    const { error } = await supabase
-      .from('card_contacts')
-      .insert({
-        card_id: card.id,
-        contact_name: contactData.name,
-        contact_email: contactData.email,
-        contact_phone: contactData.phone,
-        message: contactData.message
-      });
-
-    if (!error) {
-      setContactSuccess(true);
-      setContactData({ name: '', email: '', phone: '', message: '' });
-      setTimeout(() => {
-        setShowContactForm(false);
-        setContactSuccess(false);
-      }, 3000);
-    }
-
-    setContactSubmitting(false);
   };
 
   const downloadVCard = () => {
@@ -315,15 +278,6 @@ END:VCARD`;
           </button>
           
           <button
-            onClick={() => setShowContactForm(true)}
-            style={{ backgroundColor: themeColor }}
-            className="text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-shadow font-medium flex items-center space-x-2"
-          >
-            <span>💬</span>
-            <span>Send Message</span>
-          </button>
-          
-          <button
             onClick={() => {
               if (navigator.share) {
                 navigator.share({
@@ -347,79 +301,6 @@ END:VCARD`;
         <div className="text-center text-gray-500 text-sm">
           👀 {card.view_count} views
         </div>
-
-        {/* Contact Form Modal */}
-        {showContactForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full">
-              <h3 className="text-xl font-bold mb-4">Contact {card.full_name}</h3>
-              
-              {contactSuccess ? (
-                <div className="text-center py-8">
-                  <div className="text-green-600 text-4xl mb-4">✅</div>
-                  <p className="text-green-600 font-medium">Message sent successfully!</p>
-                  <p className="text-gray-600 text-sm mt-2">We'll make sure {card.full_name} receives your message.</p>
-                </div>
-              ) : (
-                <form onSubmit={handleContact} className="space-y-4">
-                  <input
-                    type="text"
-                    placeholder="Your Name *"
-                    value={contactData.name}
-                    onChange={(e) => setContactData({ ...contactData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                  
-                  <input
-                    type="email"
-                    placeholder="Your Email *"
-                    value={contactData.email}
-                    onChange={(e) => setContactData({ ...contactData, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                  
-                  <input
-                    type="tel"
-                    placeholder="Your Phone (optional)"
-                    value={contactData.phone}
-                    onChange={(e) => setContactData({ ...contactData, phone: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  
-                  <textarea
-                    placeholder="Your Message *"
-                    value={contactData.message}
-                    onChange={(e) => setContactData({ ...contactData, message: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={4}
-                    required
-                  />
-                  
-                  <div className="flex space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowContactForm(false)}
-                      className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    
-                    <button
-                      type="submit"
-                      disabled={contactSubmitting}
-                      style={{ backgroundColor: themeColor }}
-                      className="flex-1 text-white py-2 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-                    >
-                      {contactSubmitting ? 'Sending...' : 'Send Message'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
