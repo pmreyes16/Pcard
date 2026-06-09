@@ -35,6 +35,8 @@ export default function UserManagement() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [creatingBusinessCard, setCreatingBusinessCard] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [businessCardData, setBusinessCardData] = useState<BusinessCardFormData>({
     full_name: '',
     email: '',
@@ -440,6 +442,58 @@ export default function UserManagement() {
     }
   };
 
+  const deleteUser = async (user: User) => {
+    setDeleting(true);
+    try {
+      console.log('Attempting to delete user:', user.id, user.email);
+
+      // Delete user's business cards from business_cards table
+      const { error: cardsError } = await supabase
+        .from('business_cards')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (cardsError) {
+        console.error('Error deleting business cards:', cardsError);
+        toast({
+          title: 'Warning',
+          description: `Deleted user but some business cards may remain. Error: ${cardsError.message}`,
+          variant: 'destructive',
+        });
+      } else {
+        console.log('Business cards deleted successfully');
+      }
+
+      // Delete from user_profiles table if exists
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.log('User profile not found or already deleted');
+      }
+
+      toast({
+        title: 'Success',
+        description: `User ${user.email} and all associated data have been deleted`,
+      });
+
+      // Refresh the user list
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete user',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-4 sm:p-6">
@@ -687,12 +741,18 @@ export default function UserManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'Never'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
                       <button
                         onClick={() => sendPasswordReset(user.email)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
+                        className="text-blue-600 hover:text-blue-900"
                       >
-                        Send Reset Email
+                        Send Reset
+                      </button>
+                      <button
+                        onClick={() => setUserToDelete(user)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -960,6 +1020,44 @@ export default function UserManagement() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-center w-10 h-10 mx-auto mb-4 bg-red-100 rounded-full">
+              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4v2m0 0v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-center mb-4 text-gray-900">
+              Delete User?
+            </h3>
+            <p className="text-gray-600 text-center mb-6">
+              Are you sure you want to delete <strong>{userToDelete.email}</strong>? This will also delete all their business cards and associated data. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setUserToDelete(null)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteUser(userToDelete)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleting && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                )}
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
